@@ -2,9 +2,7 @@
 
 This is SOEM (Simple Open EtherCAT Master) library ported for Arduino.
 
-It's just for educational or experimental purposes.
-
-In addition, it's a experimental implementation with some problems.
+It's just for educational or experimental purposes. In addition, it has some known issues.
 
 The original SOEM is at https://github.com/OpenEtherCATsociety/SOEM
 
