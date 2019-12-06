@@ -13,6 +13,7 @@
 
 #if defined(GRROSE)
 #include "FreeRTOS.h"
+#include "semphr.h"
 #endif
 
 #ifdef __cplusplus

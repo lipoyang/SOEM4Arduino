@@ -23,9 +23,15 @@ void debug_print(const char* format, ...)
 
 #include "rx63n/iodefine.h"
 //#include <Ethernet.h>
+#if defined(__cplusplus)
+extern "C" {
+#endif
 #include "utility/T4_src/r_t4_itcpip.h"
 #include "utility/driver/r_ether.h"
 #include "utility/driver/r_ether_local.h"
+#ifdef __cplusplus
+}
+#endif
 #include "soem/ethercattype.h"
 
 #define ETH_HEADERSIZE      sizeof(ec_etherheadert)
@@ -33,30 +39,6 @@ void debug_print(const char* format, ...)
 // TODO This is for tcpudp_open()
 #define TCPUDP_WORK                     1780/sizeof(UW)
 static UW tcpudp_work[TCPUDP_WORK];
-
-// polling Ethernet instead of interrupt. (TODO This is a bad trick.)
-static void ethernet_poll(void)
-{
-    uint32_t status_ecsr = ETHERC.ECSR.LONG;
-    uint32_t status_eesr = EDMAC.EESR.LONG;
-                                      
-    /* When the ETHERC status interrupt is generated */
-    if (status_eesr & EMAC_ECI_INT)
-    {
-        /* When the Magic Packet detection interrupt is generated */
-        if (status_ecsr & EMAC_MPD_INT)
-        {
-            //g_ether_MpdFlag = ETHER_FLAG_ON;
-        }
-        /*
-         * Because each bit of the ECSR register is cleared when one is written, 
-         * the value read from the register is written and the bit is cleared. 
-         */
-        /* Clear all ETHERC status BFR, PSRTO, LCHNG, MPD, ICD */
-        ETHERC.ECSR.LONG = status_ecsr;
-    }
-    EDMAC.EESR.LONG  = status_eesr; /* Clear EDMAC status bits */
-}
 
 #ifdef __cplusplus
 extern "C"
@@ -66,10 +48,6 @@ extern "C"
 int  hal_ethernet_open(void)
 {
     int result = tcpudp_open(tcpudp_work);
-    
-    // disable Ethernet interrupt. (TODO This is a bad trick.) 
-    IEN(ETHER, EINT) = 0;
-    
     return result;	
 }
 
@@ -90,9 +68,6 @@ int  hal_ethernet_send(unsigned char *data, int len)
 
 int  hal_ethernet_recv(unsigned char **data)
 {
-    // polling Ethernet instead of interrupt. (TODO This is a bad trick.)
-    ethernet_poll();
-    
     int result = lan_read(
         0, // *stack->sock  (meaningless parameter)
         (B**)data);
