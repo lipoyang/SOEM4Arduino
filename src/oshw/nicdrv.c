@@ -40,6 +40,7 @@ int  hal_ethernet_open(void);
 void hal_ethernet_close(void);
 int  hal_ethernet_send(unsigned char *data, int len);
 int  hal_ethernet_recv(unsigned char **data);
+void hal_ethernet_recv_rel(void);
 
 // host byte order to network byte order
 static uint16_t htons(uint16_t data)
@@ -63,10 +64,10 @@ static uint16_t ntohs(uint16_t data)
 
 // supports multi-task
 #if defined(GRROSE)
-#define InitializeCriticalSection(mutex)    mutex = xSemaphoreCreateMutex()
-#define DeleteCriticalSection(mutex)        vSemaphoreDelete(mutex)
-#define EnterCriticalSection(mutex)         xSemaphoreTake(mutex)
-#define LeaveCriticalSection(mutex)         xSemaphoreGive(mutex)
+#define InitializeCriticalSection(mutex)    //mutex = xSemaphoreCreateMutex()
+#define DeleteCriticalSection(mutex)        //vSemaphoreDelete(mutex)
+#define EnterCriticalSection(mutex)         //xSemaphoreTake(mutex)
+#define LeaveCriticalSection(mutex)         //xSemaphoreGive(mutex)
 #else
 // not support multi-task
 #define InitializeCriticalSection(mutex)    
@@ -423,6 +424,12 @@ static int ecx_recvpkt(ecx_portt *port, int stacknumber)
       bytesrx = lp;
    }
    memcpy(*stack->tempbuf, pkt_data, bytesrx);
+
+#if defined(GRROSE)
+   // release buffer (=> SOEM.cpp)
+   hal_ethernet_recv_rel();
+#endif
+
    port->tempinbufs = bytesrx;
 
    return (bytesrx > 0);

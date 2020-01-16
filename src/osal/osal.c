@@ -64,6 +64,7 @@ int osal_thread_create(void *thandle, int stacksize, void *func, void *param)
 {
 #if defined(GRROSE)
     // TODO supports multi-task
+	return 1;
 #else
     // not support multi-task
     return 1;
@@ -74,6 +75,7 @@ int osal_thread_create_rt(void *thandle, int stacksize, void *func, void *param)
 {
 #if defined(GRROSE)
     // TODO supports multi-task
+	return 1;
 #else
     // not support multi-task
     return 1;

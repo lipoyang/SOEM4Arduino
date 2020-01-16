@@ -9,6 +9,11 @@
 #include <string.h>
 #include <inttypes.h>
 
+#if defined(GRROSE)
+#include "FreeRTOS.h"
+#include "task.h"
+#endif
+
 #include <SOEM.h>
 
 char IOmap[4096];
@@ -619,12 +624,43 @@ void slaveinfo(char *ifname)
    }
 }
 
+//********** for GR-ROSE **********
+// GR-ROSE's main task has only 512 byte stack.
+// SOEM use more than 3k byte local variables.
+// You must create another task for SOEM application.
+//   loop() : do nothing
+//   app_main() : SOEM application task function
+//   app_loop() : SOEM application main loop
+#if defined(GRROSE)
+void app_loop();
+void app_main(void* arg)
+{
+	while(1){
+		app_loop();
+	}
+}
+void setup()
+{
+    Serial.begin(115200);
+    int ret = xTaskCreate(app_main, "APP_MAIN_TASK", 10*1024, NULL, 3, NULL);
+}
+void loop()
+{
+	; // do nothing here
+}
+void app_loop()
+#else
+
+//********** except for GR-ROSE **********
+// Use setup() and loop() as usual.
+
 void setup()
 {
     Serial.begin(115200);
 }
 
 void loop()
+#endif
 {
     char NIF_NAME[] = "T4"; // It's dummy
     

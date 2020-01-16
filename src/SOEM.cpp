@@ -16,9 +16,9 @@ void debug_print(const char* format, ...)
     Serial.print(buff);
 }
 
-#if defined(GRSAKURA) || defined(GRROSE)
+#if defined(GRSAKURA)
 /**************************************************
-  for GR-SAKURA / GR-ROSE (T4 library)
+  for GR-SAKURA
 **************************************************/
 
 #include "rx63n/iodefine.h"
@@ -45,17 +45,21 @@ extern "C"
 {
 #endif
 
+// (1) open
 int  hal_ethernet_open(void)
 {
     int result = tcpudp_open(tcpudp_work);
     return result;	
 }
 
+// (2) close
 void hal_ethernet_close(void)
 {
     tcpudp_close();
 }
 
+// (3) send
+// return: 0=SUCCESS (!!! not sent size)
 int  hal_ethernet_send(unsigned char *data, int len)
 {
     int result = lan_write(
@@ -66,6 +70,8 @@ int  hal_ethernet_send(unsigned char *data, int len)
     return result;
 }
 
+// (4) receive
+// return: received size
 int  hal_ethernet_recv(unsigned char **data)
 {
     int result = lan_read(
@@ -73,6 +79,189 @@ int  hal_ethernet_recv(unsigned char **data)
         (B**)data);
     
     return result;
+}
+
+#ifdef __cplusplus
+}
+#endif
+
+#elif defined(GRROSE)
+/**************************************************
+  for GR-ROSE
+**************************************************/
+
+#if defined(__cplusplus)
+#include "Arduino.h"
+extern "C" {
+#endif
+#include "FreeRTOS.h"
+#include "task.h"
+#include "r_ether_rx_if.h"
+#include "r_ether_rx_pinset.h"
+int32_t callback_ether_regist(void);
+#ifdef __cplusplus
+}
+#endif
+
+#define ETHER_BUFSIZE_MIN 60
+#define MY_MAC_ADDR    0x02,0x00,0x00,0x00,0x00,0x00
+static uint8_t myethaddr[6] = {MY_MAC_ADDR};
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+#if 0
+static TaskHandle_t my_ether_link_check_task_handle = 0;
+static void my_check_ether_link(void * pvParameters)
+{
+    R_INTERNAL_NOT_USED(pvParameters);
+
+    while(1)
+    {
+        vTaskDelay(1000);
+        R_ETHER_LinkProcess(0);
+    }
+}
+#endif
+
+void callback_ether(void * pparam);
+static int32_t my_callback_ether_regist(void)
+{
+    ether_param_t   param;
+    ether_cb_t      cb_func;
+
+    int32_t         ret;
+
+    /* Set the callback function (LAN cable connect/disconnect event) */
+    cb_func.pcb_func     = &callback_ether;
+    param.ether_callback = cb_func;
+    ret = R_ETHER_Control(CONTROL_SET_CALLBACK, param);
+    if (ETHER_SUCCESS != ret)
+    {
+        return -1;
+    }
+#if 0
+    /* Set the callback function (Ether interrupt event) */
+    cb_func.pcb_int_hnd     = &EINT_Trig_isr;
+    param.ether_callback = cb_func;
+    ret = R_ETHER_Control(CONTROL_SET_INT_HANDLER, param);
+    if (ETHER_SUCCESS != ret)
+    {
+        return -1;
+    }
+#endif
+    return 0;
+}
+
+// (1) open
+int  hal_ethernet_open(void)
+{
+    ether_param_t   param;
+    ether_return_t eth_ret;
+    
+    R_ETHER_PinSet_ETHERC0_RMII();
+    R_ETHER_Initial();
+    my_callback_ether_regist();
+    int result = R_ETHER_Open_ZC2(0, myethaddr, ETHER_FLAG_OFF);
+    param.channel = ETHER_CHANNEL_0;
+    eth_ret = R_ETHER_Control(CONTROL_POWER_ON, param); // PHY mode settings, module stop cancellation
+    
+    do //TODO allow for timeout
+    {
+        eth_ret = R_ETHER_CheckLink_ZC(0);
+        vTaskDelay(10); // TODO
+    }
+    while(ETHER_SUCCESS != eth_ret);
+    
+    R_ETHER_LinkProcess(0);
+    
+#if 0
+    long return_code;
+    return_code = xTaskCreate(my_check_ether_link,
+                              "CHECK_ETHER_LINK_TIMER",
+                              100,
+                              0,
+                              configMAX_PRIORITIES,
+                              &my_ether_link_check_task_handle);
+    if (pdFALSE == return_code)
+    {
+        return pdFALSE;
+    }
+#endif
+    return result;	
+}
+
+// (2) close
+void hal_ethernet_close(void)
+{
+    R_ETHER_Close_ZC2(0);
+}
+
+// (3) send
+// return: 0=SUCCESS (!!! not sent size)
+int  hal_ethernet_send(unsigned char *pucBuffer, int length)
+{
+    ether_return_t ret;
+    uint8_t * pwrite_buffer;
+    uint16_t write_buf_size;
+    
+    // get buffer to send data
+    ret = R_ETHER_Write_ZC2_GetBuf(ETHER_CHANNEL_0, (void **) &pwrite_buffer, &write_buf_size);
+    if (ETHER_SUCCESS != ret)
+    {
+        //debug_print("R_ETHER_Write_ZC2_GetBuf failed!\n");
+        return -1;
+    }
+    // copy data to buffer if size enough
+    if ((write_buf_size >= length) && (write_buf_size >= ETHER_BUFSIZE_MIN))
+    {
+        memcpy(pwrite_buffer, pucBuffer, length);
+    }else{
+        return -2;
+    }
+    // minimum Ethernet frame size is 60 bytes.
+    // zero padding and resize if under minimum.
+    if (length < ETHER_BUFSIZE_MIN)
+    {
+        memset((pwrite_buffer + length), 0, (ETHER_BUFSIZE_MIN - length));  // padding
+        length = ETHER_BUFSIZE_MIN;                                         // resize
+    }
+    
+    ret = R_ETHER_Write_ZC2_SetBuf(ETHER_CHANNEL_0, (uint16_t)length);
+    if(ret != ETHER_SUCCESS){
+        return -3;
+    }
+    
+    ret = R_ETHER_CheckWrite(ETHER_CHANNEL_0);
+    if(ret != ETHER_SUCCESS){
+        return -4;
+    }
+    
+    return 0;
+}
+
+// (4) receive
+// return: received size
+int  hal_ethernet_recv(unsigned char **data)
+{
+    int result = R_ETHER_Read_ZC2(0, (void **)data);
+#if 0
+    int i;
+    for(i=0;i<result;i++){
+        debug_print("%02X " , *data[i]);
+    }
+    if(result>0) hoge_print("\n");
+#endif
+    return result;
+}
+
+// release received buffer
+// don't forget call this after hal_ethernet_recv()
+void hal_ethernet_recv_rel(void)
+{
+    R_ETHER_Read_ZC2_BufRelease(0);
 }
 
 #ifdef __cplusplus
@@ -98,6 +287,7 @@ extern "C"
 {
 #endif
 
+// (1) open
 int hal_ethernet_open(void)
 {
     w5500.init();
@@ -106,19 +296,24 @@ int hal_ethernet_open(void)
     return 0;
 }
 
+// (2) close
 void hal_ethernet_close(void)
 {
     // w5500 doesn't have close() or terminate() method
     w5500.swReset();
 }
 
+// (3) send
+// return: 0=SUCCESS (!!! not sent size)
 int hal_ethernet_send(unsigned char *data, int len)
 {
     w5500.send_data_processing(sock, (byte *)data, len);
     w5500.execCmdSn(sock, Sock_SEND_MAC);
-    return len;
+    return 0;
 }
 
+// (4) receive
+// return: received size
 int hal_ethernet_recv(unsigned char **data)
 {
     unsigned short packetSize;

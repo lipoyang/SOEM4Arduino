@@ -9,7 +9,18 @@ The original SOEM is at https://github.com/OpenEtherCATsociety/SOEM
 ## Supported hardware
 
 * Arduino Due + Ethernet Shield 2 (W5500)
-* GR-SAKURA
+* GR-SAKURA (Renesas RX63N)
+* GR-ROSE (Renesas RX65N)
+
+## Notes for GR-ROSE
+
+You must create a user task to use SOEM.
+
+GR-ROSE's main task (setup & loop) has only 512 byte stack.
+On the other hand, SOEM uses more than 3k byte local variables.
+Therefore, the memory corruption will occur when you call SOEM's API on the main task.
+You must creat a task with more than 4k byte stack and then call SOEM's API on the task.
+Please see the sample sketch (slaveinfo.ino).
 
 ## Known issues
 
