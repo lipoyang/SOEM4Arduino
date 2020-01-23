@@ -425,7 +425,7 @@ static int ecx_recvpkt(ecx_portt *port, int stacknumber)
    }
    memcpy(*stack->tempbuf, pkt_data, bytesrx);
 
-#if defined(GRROSE)
+#if defined(GRROSE) || defined(GRSAKURA)
    // release buffer (=> SOEM.cpp)
    hal_ethernet_recv_rel();
 #endif

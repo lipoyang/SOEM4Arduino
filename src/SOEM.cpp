@@ -3,6 +3,9 @@
 #include <Arduino.h>
 #include "osal/osal_defs.h" // EC_DEBUG
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
 // just for debug (not thread safe)
 void debug_print(const char* format, ...)
 {
@@ -15,6 +18,9 @@ void debug_print(const char* format, ...)
 
     Serial.print(buff);
 }
+#ifdef __cplusplus
+}
+#endif
 
 #if defined(GRSAKURA)
 /**************************************************
@@ -26,19 +32,39 @@ void debug_print(const char* format, ...)
 #if defined(__cplusplus)
 extern "C" {
 #endif
-#include "utility/T4_src/r_t4_itcpip.h"
 #include "utility/driver/r_ether.h"
 #include "utility/driver/r_ether_local.h"
 #ifdef __cplusplus
 }
 #endif
-#include "soem/ethercattype.h"
 
-#define ETH_HEADERSIZE      sizeof(ec_etherheadert)
+#define ETHER_BUFSIZE_MIN 60
+#define MY_MAC_ADDR    0x02,0x00,0x00,0x00,0x00,0x00
+static uint8_t myethaddr[6] = {MY_MAC_ADDR};
 
-// TODO This is for tcpudp_open()
-#define TCPUDP_WORK                     1780/sizeof(UW)
-static UW tcpudp_work[TCPUDP_WORK];
+// polling Ethernet instead of interrupt. (TODO This is a bad trick.)
+static void ethernet_poll(void)
+{
+    uint32_t status_ecsr = ETHERC.ECSR.LONG;
+    uint32_t status_eesr = EDMAC.EESR.LONG;
+                                      
+    /* When the ETHERC status interrupt is generated */
+    if (status_eesr & EMAC_ECI_INT)
+    {
+        /* When the Magic Packet detection interrupt is generated */
+        if (status_ecsr & EMAC_MPD_INT)
+        {
+            //g_ether_MpdFlag = ETHER_FLAG_ON;
+        }
+        /*
+         * Because each bit of the ECSR register is cleared when one is written, 
+         * the value read from the register is written and the bit is cleared. 
+         */
+        /* Clear all ETHERC status BFR, PSRTO, LCHNG, MPD, ICD */
+        ETHERC.ECSR.LONG = status_ecsr;
+    }
+    EDMAC.EESR.LONG  = status_eesr; /* Clear EDMAC status bits */
+}
 
 #ifdef __cplusplus
 extern "C"
@@ -46,39 +72,96 @@ extern "C"
 #endif
 
 // (1) open
+// return: 0=SUCCESS
 int  hal_ethernet_open(void)
 {
-    int result = tcpudp_open(tcpudp_work);
-    return result;	
+	int eth_ret;
+    int result = R_ETHER_Open_ZC2(0, myethaddr);
+    IEN(ETHER, EINT) = 0;
+    
+    do //TODO allow for timeout
+    {
+        eth_ret = R_Ether_CheckLink_ZC(0);
+        delay(10);
+    }
+    while(R_ETHER_OK != eth_ret);
+    
+    do
+    {
+        R_ETHER_LinkProcess();
+        delay(10);
+    }
+    while(g_ether_TransferEnableFlag != ETHER_FLAG_ON);
+    
+    return result;
 }
 
 // (2) close
 void hal_ethernet_close(void)
 {
-    tcpudp_close();
+    R_ETHER_Close_ZC2(0);
 }
 
 // (3) send
 // return: 0=SUCCESS (!!! not sent size)
-int  hal_ethernet_send(unsigned char *data, int len)
+int  hal_ethernet_send(unsigned char *pucBuffer, int length)
 {
-    int result = lan_write(
-        0,  // *stack->sock  (meaningless parameter)
-        (B*)(&data[0]),               ETH_HEADERSIZE,
-        (B*)(&data[ETH_HEADERSIZE]) , len - ETH_HEADERSIZE);
+	int ret;
+    uint8_t * pwrite_buffer;
+    uint16_t write_buf_size;
     
-    return result;
+    // get buffer to send
+    ret = R_ETHER_Write_ZC2_GetBuf(0, (void **) &pwrite_buffer, &write_buf_size);
+    if (R_ETHER_OK != ret)
+    {
+        //debug_print("R_ETHER_Write_ZC2_GetBuf failed!\n");
+        return -1;
+    }
+    // copy data to buffer if size enough
+    if ((write_buf_size >= length) && (write_buf_size >= ETHER_BUFSIZE_MIN))
+    {
+        memcpy(pwrite_buffer, pucBuffer, length);
+    }else{
+        //debug_print("R_ETHER_Write_ZC2_GetBuf failed 2!\n");
+        return -2;
+    }
+    // minimum Ethernet frame size is 60 bytes.
+    // zero padding and resize if under minimum.
+    if (length < ETHER_BUFSIZE_MIN)
+    {
+        memset((pwrite_buffer + length), 0, (ETHER_BUFSIZE_MIN - length));  // padding
+        length = ETHER_BUFSIZE_MIN;                                         // resize
+    }
+    
+    ret = R_ETHER_Write_ZC2_SetBuf(0, (uint16_t)length);
+    if(ret != R_ETHER_OK){
+        //debug_print("R_ETHER_Write_ZC2_SetBuf failed!\n");
+        return -3;
+    }
+    
+    //ret = R_ETHER_CheckWrite(0);
+    //if(ret != R_ETHER_OK){
+    //    return -4;
+    //}
+    
+    return 0;
 }
 
 // (4) receive
 // return: received size
 int  hal_ethernet_recv(unsigned char **data)
 {
-    int result = lan_read(
-        0, // *stack->sock  (meaningless parameter)
-        (B**)data);
-    
+    // polling Ethernet instead of interrupt. (TODO This is a bad trick.)
+    ethernet_poll();
+    int result = R_ETHER_Read_ZC2(0, (void **)data);
     return result;
+}
+
+// release received buffer
+// don't forget call this after hal_ethernet_recv()
+void hal_ethernet_recv_rel(void)
+{
+    R_ETHER_Read_ZC2_BufRelease(0);
 }
 
 #ifdef __cplusplus
@@ -156,6 +239,7 @@ static int32_t my_callback_ether_regist(void)
 }
 
 // (1) open
+// return: 0=SUCCESS
 int  hal_ethernet_open(void)
 {
     ether_param_t   param;
@@ -246,7 +330,7 @@ int  hal_ethernet_send(unsigned char *pucBuffer, int length)
 // return: received size
 int  hal_ethernet_recv(unsigned char **data)
 {
-    int result = R_ETHER_Read_ZC2(0, (void **)data);
+    int result = R_ETHER_Read_ZC2(ETHER_CHANNEL_0, (void **)data);
 #if 0
     int i;
     for(i=0;i<result;i++){
@@ -261,7 +345,7 @@ int  hal_ethernet_recv(unsigned char **data)
 // don't forget call this after hal_ethernet_recv()
 void hal_ethernet_recv_rel(void)
 {
-    R_ETHER_Read_ZC2_BufRelease(0);
+    R_ETHER_Read_ZC2_BufRelease(ETHER_CHANNEL_0);
 }
 
 #ifdef __cplusplus
@@ -288,6 +372,7 @@ extern "C"
 #endif
 
 // (1) open
+// return: 0=SUCCESS
 int hal_ethernet_open(void)
 {
     w5500.init();
