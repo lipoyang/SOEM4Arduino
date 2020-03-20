@@ -9,8 +9,22 @@ The original SOEM is at https://github.com/OpenEtherCATsociety/SOEM
 ## Supported hardware
 
 * Arduino Due + Ethernet Shield 2 (W5500)
+* ESP32 + WIZ850io (W5500)
 * GR-SAKURA (Renesas RX63N)
 * GR-ROSE (Renesas RX65N)
+
+## Notes for ESP32
+
+Connect ESP32 and W5500 as shown below.
+
+| ESP32-DevKitC | WIZ850io (W5500) |
+| ---- | ---- |
+| GND  | GND  |
+| 3V3  | 3.3V |
+| IO23 (VSPI MOSI) | MOSI |
+| IO19 (VSPI MISO) | MISO |
+| IO18 (VSPI SCK)  | SCLK |
+| IO5  (VSPI SS)   | SCSn |  
 
 ## Notes for GR-ROSE
 

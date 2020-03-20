@@ -375,7 +375,11 @@ extern "C"
 // return: 0=SUCCESS
 int hal_ethernet_open(void)
 {
+#ifdef ESP32
+    w5500.init(5); // ESP32's SS is typically GPIO5.
+#else
     w5500.init();
+#endif
     w5500.writeSnMR(sock, SnMR::MACRAW); 
     w5500.execCmdSn(sock, Sock_OPEN);
     return 0;
