@@ -10,6 +10,7 @@ The original SOEM is at https://github.com/OpenEtherCATsociety/SOEM
 
 * Arduino Due + Ethernet Shield 2 (W5500)
 * ESP32 + WIZ850io (W5500)
+* M5Stack + M5Stack LAN Module (W5500)
 * GR-SAKURA (Renesas RX63N)
 * GR-ROSE (Renesas RX65N)
 
@@ -25,6 +26,8 @@ Connect ESP32 and W5500 as shown below.
 | IO19 (VSPI MISO) | MISO |
 | IO18 (VSPI SCK)  | SCLK |
 | IO5  (VSPI SS)   | SCSn |  
+
+However, M5Stack's SS is not IO5 but IO26.
 
 ## Notes for GR-ROSE
 

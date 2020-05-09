@@ -375,7 +375,9 @@ extern "C"
 // return: 0=SUCCESS
 int hal_ethernet_open(void)
 {
-#ifdef ESP32
+#if defined(ARDUINO_M5Stack_Core_ESP32)
+    w5500.init(26); // M5Stack's SS is GPIO26.
+#elif defined(ESP32)
     w5500.init(5); // ESP32's SS is typically GPIO5.
 #else
     w5500.init();
