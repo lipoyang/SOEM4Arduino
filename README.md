@@ -1,4 +1,4 @@
-# Simple Open EtherCAT Master Library for Arduino (Beta Ver.)
+# Simple Open EtherCAT Master Library for Arduino
 
 This is SOEM (Simple Open EtherCAT Master) library ported for Arduino.
 
@@ -13,6 +13,17 @@ The original SOEM is at https://github.com/OpenEtherCATsociety/SOEM
 * M5Stack + M5Stack LAN Module (W5500)
 * GR-SAKURA (Renesas RX63N)
 * GR-ROSE (Renesas RX65N)
+
+## limitations 
+Many of MCUs don't have large memory, and has only one LAN port. SOEM4Arduino reduces memory usage, and does not support redundant LAN ports.
+
+Doe to reducing memory usage, some functions are limited.
+| item | constant name | original SOEM | SOEM4Arduino |
+| ---- | ---- | ---- | ---- |
+| max entries in Object Dictionary list | EC_MAXODLIST | 1024 | 64 |
+| max entries in Object Entry list | EC_MAXOELIST | 256 | 64 |
+| max number of slaves in array | EC_MAXSLAVE | 200 | 64 |
+| number of frame buffers | EC_MAXBUF | 16 | 2 |
 
 ## Notes for ESP32
 
@@ -35,7 +46,7 @@ You must create a user task to use SOEM.
 
 GR-ROSE's main task (setup & loop) has only 512 byte stack.
 On the other hand, SOEM uses more than 3k byte local variables.
-Therefore, the memory corruption will occur when you call SOEM's API on the main task.
+Therefore the memory corruption will occur when you call SOEM's API on the main task.
 You must creat a task with more than 4k byte stack and then call SOEM's API on the task.
 Please see the sample sketch (slaveinfo.ino).
 
