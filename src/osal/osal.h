@@ -18,7 +18,11 @@ extern "C"
 /* General types */
 
 #ifndef Arduino_h
+#ifdef __PIC32MX__
+typedef uint8_t             boolean;
+#else
 typedef bool                boolean;
+#endif
 #endif
 #define TRUE                1
 #define FALSE               0

@@ -13,6 +13,7 @@ The original SOEM is at https://github.com/OpenEtherCATsociety/SOEM
 * M5Stack + M5Stack LAN Module (W5500)
 * GR-SAKURA (Renesas RX63N)
 * GR-ROSE (Renesas RX65N)
+* chipKIT Max32 (PIC32MX) + Ethernet Shield 2 (W5500)
 
 ## limitations 
 Many of MCUs don't have large memory, and has only one LAN port. SOEM4Arduino reduces memory usage, and does not support redundant LAN ports.

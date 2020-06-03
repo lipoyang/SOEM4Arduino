@@ -380,6 +380,11 @@ int hal_ethernet_open(void)
 #elif defined(ESP32)
     w5500.init(5); // ESP32's SS is typically GPIO5.
 #else
+    // Ethernet Shield 2
+    // disable nCS for SD Card
+    pinMode(4, OUTPUT);
+    digitalWrite(4, HIGH);
+    
     w5500.init();
 #endif
     w5500.writeSnMR(sock, SnMR::MACRAW); 
