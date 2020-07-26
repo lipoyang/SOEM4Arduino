@@ -40,6 +40,7 @@ void W5500Class::init(uint8_t ss_pin)
   }
 }
 
+#if defined(ESP32)
 // extension for M5Stack ATOM
 void W5500Class::init(uint8_t sck_pin, uint8_t miso_pin, uint8_t mosi_pin, uint8_t ss_pin)
 {
@@ -55,6 +56,7 @@ void W5500Class::init(uint8_t sck_pin, uint8_t miso_pin, uint8_t mosi_pin, uint8
     write( 0x1F, cntl_byte, 2); //0x1F - Sn_TXBUF_SIZE
   }
 }
+#endif
 
 uint16_t W5500Class::getTXFreeSize(SOCKET s)
 {
