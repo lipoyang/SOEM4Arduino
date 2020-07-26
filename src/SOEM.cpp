@@ -358,8 +358,7 @@ void hal_ethernet_recv_rel(void)
 **************************************************/
 
 #include <SPI.h>
-#include <Ethernet2.h>
-#include <utility/w5500.h>
+#include "w5500/w5500.h"
 
 // W5500 RAW socket
 static SOCKET sock;
@@ -378,7 +377,11 @@ int hal_ethernet_open(void)
 #if defined(ARDUINO_M5Stack_Core_ESP32)
     w5500.init(26); // M5Stack's SS is GPIO26.
 #elif defined(ESP32)
-    w5500.init(5); // ESP32's SS is typically GPIO5.
+    if(strcmp(ARDUINO_BOARD, "ESP32_PICO") == 0){
+        w5500.init(25, 19, 21, 22); // for M5 ATOM Matrix
+    }else{
+        w5500.init(5);// ESP32's SS is typically GPIO5.
+    }
 #else
     // Ethernet Shield 2
     // disable nCS for SD Card

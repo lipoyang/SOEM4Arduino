@@ -11,6 +11,7 @@ The original SOEM is at https://github.com/OpenEtherCATsociety/SOEM
 * Arduino Due + Ethernet Shield 2 (W5500)
 * ESP32 + WIZ850io (W5500)
 * M5Stack + M5Stack LAN Module (W5500)
+* M5 ATOM Matrix + WIZ850io (W5500)
 * GR-SAKURA (Renesas RX63N)
 * GR-ROSE (Renesas RX65N)
 * chipKIT Max32 (PIC32MX) + Ethernet Shield 2 (W5500)
@@ -40,6 +41,21 @@ Connect ESP32 and W5500 as shown below.
 | IO5  (VSPI SS)   | SCSn |  
 
 However, M5Stack's SS is not IO5 but IO26.
+
+## Notes for M5 ATOM Matrix
+
+M5 ATOM Matrix's IO pins are remappable. The pin assignment is determined as follows. It's just for ease of wiring.
+
+| M5 ATOM Matrix | WIZ850io (W5500) |
+| ---- | ---- |
+| GND  | GND  |
+| 3V3  | 3.3V |
+| IO21 | MOSI |
+| IO19 | MISO |
+| IO25 | SCLK |
+| IO22 | SCSn | 
+
+Please choose <b>ESP32 Pico KIT</b> as the board configuration, and use 115200 for the baud rate.
 
 ## Notes for GR-ROSE
 
