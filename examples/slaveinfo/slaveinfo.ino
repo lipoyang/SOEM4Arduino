@@ -596,18 +596,18 @@ void slaveinfo(char *ifname)
                 if(printMAP)
             {
                     if (ec_slave[cnt].mbx_proto & ECT_MBXPROT_COE){
-                        printf("[DATA1]\n");
+                        //printf("[DATA1]\n");
                         si_map_sdo(cnt);
-                        printf("[DATA1]\n");
+                        //printf("[DATA1]\n");
                     }
                     else{
-                        printf("[DATA2]\n");
+                        //printf("[DATA2]\n");
                         si_map_sii(cnt);
-                        printf("[DATA2]\n");
+                        //printf("[DATA2]\n");
                     }
             }else{
-				printf("NO DATA\n");
-			}
+                printf("NO DATA\n");
+            }
          }
       }
       else
@@ -635,9 +635,9 @@ void slaveinfo(char *ifname)
 void app_loop();
 void app_main(void* arg)
 {
-	while(1){
-		app_loop();
-	}
+    while(1){
+        app_loop();
+    }
 }
 void setup()
 {
@@ -646,7 +646,7 @@ void setup()
 }
 void loop()
 {
-	; // do nothing here
+    ; // do nothing here
 }
 void app_loop()
 #else
