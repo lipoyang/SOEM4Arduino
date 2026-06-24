@@ -352,6 +352,83 @@ void hal_ethernet_recv_rel(void)
 }
 #endif
 
+#elif defined(ARDUINO_ESP32_POE_ISO) || \
+      defined(ARDUINO_ESP32_POE)     || \
+      defined(SOEM_INTERNAL_ETH)
+/**************************************************
+  for ESP32 with internal EMAC (e.g. Olimex ESP32-POE-ISO)
+  ETH must be initialised in setup() before ec_init() is called.
+**************************************************/
+
+#include <ETH.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "esp_eth.h"
+
+#define HAL_RX_QSIZE 4
+static esp_eth_handle_t s_eth = NULL;
+static QueueHandle_t    s_rxq = NULL;
+struct HalRxFrame { uint8_t *buf; uint32_t len; };
+static unsigned char s_rx_static[1536];
+
+static esp_err_t s_rx_cb(esp_eth_handle_t, uint8_t *buf, uint32_t len, void*)
+{
+    uint8_t *copy = (uint8_t*)malloc(len);
+    if (copy) {
+        memcpy(copy, buf, len);
+        HalRxFrame f = {copy, len};
+        xQueueSend(s_rxq, &f, 0);
+    }
+    free(buf);
+    return ESP_OK;
+}
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int hal_ethernet_open(void)
+{
+    if (s_eth) return 0;
+    if (!s_rxq) { s_rxq = xQueueCreate(HAL_RX_QSIZE, sizeof(HalRxFrame)); if (!s_rxq) return -1; }
+    s_eth = ETH.handle();
+    if (!s_eth) return -2;
+    if (!ETH.linkUp()) return -3;
+    esp_eth_update_input_path(s_eth, s_rx_cb, NULL);
+    return 0;
+}
+
+void hal_ethernet_close(void)
+{
+    s_eth = NULL;  // allow re-open after ec_close() + ec_init()
+}
+
+int hal_ethernet_send(unsigned char *data, int len)
+{
+    if (!s_eth) return -1;
+    return (esp_eth_transmit(s_eth, data, (size_t)len) == ESP_OK) ? 0 : -1;
+}
+
+int hal_ethernet_recv(unsigned char **data)
+{
+    if (!s_rxq) return 0;
+    HalRxFrame f;
+    if (xQueueReceive(s_rxq, &f, 0) == pdTRUE) {
+        uint32_t len = (f.len < sizeof(s_rx_static)) ? f.len : sizeof(s_rx_static);
+        memcpy(s_rx_static, f.buf, len);
+        free(f.buf);
+        *data = s_rx_static;
+        return (int)len;
+    }
+    return 0;
+}
+
+void hal_ethernet_recv_rel(void) {}
+
+#ifdef __cplusplus
+}
+#endif
+
 #else
 /**************************************************
   for Ethernet Shield (W5500)
