@@ -16,6 +16,18 @@
 
 #include <SOEM.h>
 
+// ESP32 boards with internal EMAC (e.g. Olimex ESP32-POE-ISO) need the ETH
+// stack brought up in setup() before ec_init() can open the HAL. The event
+// flag lets setup() block until the PHY reports link-up without any busy-wait
+// in the SOEM layer itself.
+#if defined(ARDUINO_ESP32_POE_ISO) || defined(ARDUINO_ESP32_POE) || defined(SOEM_INTERNAL_ETH)
+#include <ETH.h>
+static volatile bool eth_ready = false;
+static void onEthEvent(arduino_event_id_t e) {
+    if (e == ARDUINO_EVENT_ETH_CONNECTED) eth_ready = true;
+}
+#endif
+
 char IOmap[4096];
 ec_ODlistt ODlist;
 ec_OElistt OElist;
@@ -657,6 +669,15 @@ void app_loop()
 void setup()
 {
     Serial.begin(115200);
+// On ESP32 boards with internal EMAC the ETH stack must be started here so
+// the PHY is powered and the link is up before the first ec_init() call.
+// ETH_PHY_* constants come from the board's pins_arduino.h (e.g. Olimex
+// ESP32-POE-ISO sets ETH_PHY_POWER=12 and ETH_CLK_MODE=ETH_CLOCK_GPIO17_OUT).
+#if defined(ARDUINO_ESP32_POE_ISO) || defined(ARDUINO_ESP32_POE) || defined(SOEM_INTERNAL_ETH)
+    Network.onEvent(onEthEvent);
+    ETH.begin(ETH_PHY_TYPE, ETH_PHY_ADDR, ETH_PHY_MDC, ETH_PHY_MDIO, ETH_PHY_POWER, ETH_CLK_MODE);
+    while (!eth_ready) delay(10);
+#endif
 }
 
 void loop()
