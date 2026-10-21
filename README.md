@@ -1,4 +1,12 @@
+**Maintenance Status: Unmaintained**
+
+This project is no longer actively maintained. Issues and pull requests are not regularly monitored, and updates or bug fixes are not guaranteed.
+
+The project remains available for anyone who wishes to use, modify, or fork it.
+
 # Simple Open EtherCAT Master Library for Arduino
+
+
 
 This is SOEM (Simple Open EtherCAT Master) library ported for Arduino.
 
